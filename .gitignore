@@ -1,0 +1,17 @@
+**/bin/
+**/obj/
+.vs/
+*.user
+*.suo
+artifacts/
+
+# Local build and release outputs
+**/build/
+**/firmware-release/
+**/managed_components/
+**/.vscode/
+**/sdkconfig.old
+/软件/
+/发布/
+/*.zip
+/*.docx

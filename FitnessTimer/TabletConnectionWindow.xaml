@@ -1,0 +1,14 @@
+<Window x:Class="FitnessTimer.TabletConnectionWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="1号赛道平板联通测试" Width="760" Height="520" MinWidth="680" MinHeight="480" Background="#F2F5F9" FontFamily="Microsoft YaHei UI" WindowStartupLocation="CenterOwner">
+ <StackPanel Margin="24">
+  <TextBlock Text="1号赛道平板联通测试" FontSize="24" FontWeight="Bold"/>
+  <TextBlock Text="电脑与平板连接同一个 Wi-Fi，在平板浏览器打开下方地址。" Foreground="#52677C" Margin="0,10,0,16"/>
+  <WrapPanel><TextBlock Text="端口" VerticalAlignment="Center" Margin="0,0,8,0"/><TextBox x:Name="PortBox" Text="18760" Width="90" MaxLength="5"/><Button x:Name="StartServiceButton" Content="启动服务" Click="Start_Click" Background="#087F72" Foreground="White"/><Button x:Name="StopServiceButton" Content="停止服务" Click="Stop_Click"/><Button Content="刷新地址" Click="Refresh_Click"/></WrapPanel>
+  <TextBlock x:Name="ServiceStateText" FontSize="18" FontWeight="Bold" Margin="0,16,0,8"/>
+  <TextBlock x:Name="ClientStateText" Foreground="#52677C" Margin="0,0,0,16"/>
+  <TextBlock Text="平板访问地址（选择与平板同网段的电脑 IP）" Margin="0,0,0,6"/>
+  <ComboBox x:Name="AddressBox" Padding="8,10" FontSize="14"/>
+  <WrapPanel Margin="0,10,0,12"><Button x:Name="CopyAddressButton" Content="复制平板地址" Click="Copy_Click"/><Button x:Name="LocalTestButton" Content="本机浏览器测试" Click="LocalTest_Click"/></WrapPanel>
+  <TextBlock Text="当前只测试1道，只读展示，不提供平板计时操作。平板打开页面后会自动保持联通，关闭或失联约8秒后显示离线。" TextWrapping="Wrap" Foreground="#52677C" Margin="0,0,0,10"/>
+  <TextBlock Text="如果平板无法打开，请检查网络是否互通、Wi-Fi是否隔离设备，以及 Windows 防火墙是否允许本程序在专用网络接收连接。关闭此窗口不会停止服务。" TextWrapping="Wrap" Foreground="#718096"/>
+ </StackPanel>
+</Window>

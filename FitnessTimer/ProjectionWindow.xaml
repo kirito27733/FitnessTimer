@@ -1,0 +1,67 @@
+<Window x:Class="FitnessTimer.ProjectionWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:core="clr-namespace:FitnessTimer.Core"
+ Title="体能计时 · 外屏投屏" Width="1120" Height="720" MinWidth="720" MinHeight="450"
+ WindowStartupLocation="CenterScreen" Background="#0B1220" FontFamily="Microsoft YaHei UI"
+ PreviewKeyDown="Window_KeyDown" MouseDoubleClick="Window_DoubleClick">
+ <Window.Resources>
+  <Style TargetType="TextBlock"><Setter Property="Foreground" Value="#F1F5F9"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
+  <Style x:Key="PenaltySeverity" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+   <Setter Property="Foreground" Value="#FF8585"/>
+   <Style.Triggers>
+    <DataTrigger Binding="{Binding FifteenCount}" Value="0"><Setter Property="Foreground" Value="#FFCE73"/></DataTrigger>
+    <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding FiveCount}" Value="0"/><Condition Binding="{Binding FifteenCount}" Value="0"/></MultiDataTrigger.Conditions><Setter Property="Foreground" Value="#36DABC"/></MultiDataTrigger>
+   </Style.Triggers>
+  </Style>
+  <Style x:Key="PenaltyAmount" TargetType="TextBlock" BasedOn="{StaticResource PenaltySeverity}">
+   <Style.Triggers><DataTrigger Binding="{Binding PenaltySeconds}" Value="0"><Setter Property="Foreground" Value="#FFCE73"/></DataTrigger></Style.Triggers>
+  </Style>
+  <Style x:Key="FivePenaltyCount" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+   <Setter Property="Foreground" Value="#FFCE73"/>
+   <Style.Triggers><DataTrigger Binding="{Binding FiveCount}" Value="0"><Setter Property="Foreground" Value="#8FA2BF"/></DataTrigger></Style.Triggers>
+  </Style>
+  <Style x:Key="FifteenPenaltyCount" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+   <Setter Property="Foreground" Value="#FF8585"/>
+   <Style.Triggers><DataTrigger Binding="{Binding FifteenCount}" Value="0"><Setter Property="Foreground" Value="#8FA2BF"/></DataTrigger></Style.Triggers>
+  </Style>
+ </Window.Resources>
+ <Grid>
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+  <Border x:Name="Toolbar" Background="#172237" Padding="12,6">
+   <DockPanel>
+    <Button x:Name="FullscreenButton" DockPanel.Dock="Right" Content="全屏显示（F11）" Background="#25D3B0" Click="Fullscreen_Click"/>
+    <Button DockPanel.Dock="Right" Content="刷新屏幕" Click="RefreshScreens_Click"/>
+    <TextBlock Text="目标屏幕" Margin="0,0,12,0"/>
+    <ComboBox x:Name="MonitorBox" DisplayMemberPath="Label" MinWidth="280" MaxWidth="450" HorizontalAlignment="Left" VerticalContentAlignment="Center" Padding="10,6" SelectionChanged="MonitorBox_SelectionChanged"/>
+   </DockPanel>
+  </Border>
+  <Viewbox x:Name="DisplayContent" Grid.Row="1" Stretch="Uniform" Margin="16">
+   <Grid Width="1600" Height="900">
+    <Grid.RowDefinitions><RowDefinition Height="150"/><RowDefinition Height="60"/><RowDefinition Height="*"/><RowDefinition Height="60"/></Grid.RowDefinitions>
+    <Grid Margin="28,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="520"/></Grid.ColumnDefinitions>
+     <StackPanel VerticalAlignment="Center" Margin="0,0,24,0"><TextBlock x:Name="ActivityTitleText" FontSize="48" FontWeight="Bold" TextTrimming="CharacterEllipsis"/><TextBlock x:Name="OrganizerTitleText" FontSize="28" FontWeight="SemiBold" Foreground="#8FA2BF" Margin="2,12,0,0" TextTrimming="CharacterEllipsis"/></StackPanel>
+     <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock x:Name="BatchText" FontSize="22" Foreground="#C3D1E3" TextAlignment="Right" TextTrimming="CharacterEllipsis"/><TextBlock Text="四赛道实时成绩" FontSize="18" Foreground="#36DABC" TextAlignment="Right" Margin="0,12,0,0"/></StackPanel>
+    </Grid>
+    <Grid Grid.Row="1" Margin="50,0"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="350"/><ColumnDefinition Width="300"/><ColumnDefinition Width="300"/><ColumnDefinition Width="400"/></Grid.ColumnDefinitions>
+     <TextBlock Text="赛道" FontSize="22" Foreground="#8FA2BF"/><TextBlock Grid.Column="1" Text="选手 / 状态" FontSize="22" Foreground="#8FA2BF"/><TextBlock Grid.Column="2" Text="基础用时" FontSize="22" Foreground="#8FA2BF"/><TextBlock Grid.Column="3" Text="罚时" FontSize="22" Foreground="#8FA2BF"/><TextBlock Grid.Column="4" Text="总用时" FontSize="22" Foreground="#8FA2BF"/>
+    </Grid>
+    <ItemsControl Grid.Row="2" ItemsSource="{Binding}"><ItemsControl.ItemTemplate><DataTemplate>
+     <Border Background="#142137" CornerRadius="16" Padding="28,0" Margin="22,0,22,16" Height="138">
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="350"/><ColumnDefinition Width="300"/><ColumnDefinition Width="300"/><ColumnDefinition Width="400"/></Grid.ColumnDefinitions>
+       <TextBlock Text="{Binding Number, StringFormat={}{0:00}}" FontFamily="Consolas" FontSize="58" FontWeight="Bold" Foreground="#849BB9"/>
+       <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,28,0">
+        <TextBlock FontSize="32" FontWeight="Bold" Foreground="#F1F5F9" TextTrimming="CharacterEllipsis"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding Participant}"/><Style.Triggers><DataTrigger Binding="{Binding Participant}" Value=""><Setter Property="Text" Value="未填写姓名"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+        <TextBlock Text="{Binding Status}" FontSize="20" Margin="0,10,0,0"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="#8FA2BF"/><Style.Triggers><DataTrigger Binding="{Binding State}" Value="{x:Static core:LaneState.Running}"><Setter Property="Foreground" Value="#36DABC"/></DataTrigger><DataTrigger Binding="{Binding State}" Value="{x:Static core:LaneState.Paused}"><Setter Property="Foreground" Value="#FFCE73"/></DataTrigger><DataTrigger Binding="{Binding State}" Value="{x:Static core:LaneState.Finished}"><Setter Property="Foreground" Value="#93C5FD"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+       </StackPanel>
+       <TextBlock Grid.Column="2" Text="{Binding BaseDisplay}" FontFamily="Consolas" FontSize="43" Foreground="#F1F5F9"/>
+       <StackPanel Grid.Column="3" VerticalAlignment="Center"><TextBlock Text="{Binding PenaltySeconds, StringFormat=+ {0} 秒}" FontSize="32" Style="{StaticResource PenaltyAmount}"/><StackPanel Orientation="Horizontal" Margin="0,10,0,0"><TextBlock FontSize="16" Style="{StaticResource FivePenaltyCount}"><Run Text="5秒 × "/><Run Text="{Binding FiveCount, Mode=OneWay}"/></TextBlock><TextBlock FontSize="16" Style="{StaticResource FifteenPenaltyCount}" Margin="14,0,0,0"><Run Text="15秒 × "/><Run Text="{Binding FifteenCount, Mode=OneWay}"/></TextBlock></StackPanel></StackPanel>
+       <TextBlock Grid.Column="4" Text="{Binding TotalDisplay}" FontFamily="Consolas" FontSize="60" FontWeight="Bold" Style="{StaticResource PenaltySeverity}"/>
+      </Grid>
+     </Border>
+    </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+    <Grid Grid.Row="3" Margin="28,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="总用时 = 基础用时 + 罚时    ·    时间格式：分:秒.百分秒" FontSize="18" Foreground="#8FA2BF"/><TextBlock Grid.Column="1" Text="F11 / 双击切换全屏    ·    Esc 退出全屏" FontSize="16" Foreground="#8FA2BF"/></Grid>
+   </Grid>
+  </Viewbox>
+ </Grid>
+</Window>

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>抢答器测试台（BLE + 串口）</title>
+  <style>
+    :root { --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --dim:#94a3b8;
+            --accent:#38bdf8; --danger:#f87171; --ok:#4ade80; }
+    * { box-sizing: border-box; }
+    body { margin:0; padding:24px; background:var(--bg); color:var(--txt);
+           font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif; }
+    h1 { font-size:22px; margin:0 0 16px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+            padding:16px 18px; margin-bottom:14px; max-width:640px; }
+    .card h2 { font-size:15px; margin:0 0 10px; color:var(--accent); }
+    button { background:#0ea5e9; color:#fff; border:none; border-radius:8px; padding:9px 16px;
+             font-size:14px; cursor:pointer; margin:4px 8px 4px 0; }
+    button:hover { filter:brightness(1.1); }
+    button:disabled { background:#475569; cursor:not-allowed; }
+    button.danger { background:#dc2626; }
+    button.ghost { background:#334155; }
+    .status-dot { display:inline-block; width:10px; height:10px; border-radius:50%;
+                  background:#64748b; margin-right:6px; vertical-align:middle; }
+    .status-dot.on { background:var(--ok); }
+    .hint { color:var(--dim); font-size:13px; margin:8px 0 0; }
+    ul { list-style:none; padding:0; margin:8px 0 0; }
+    li { display:flex; align-items:center; gap:10px; padding:8px 10px;
+         border:1px solid var(--line); border-radius:8px; margin-bottom:6px; font-size:14px; }
+    li .mac { font-family:Consolas,monospace; color:var(--accent); flex:1; }
+    li .tag { font-size:12px; color:var(--dim); background:#0f172a; padding:2px 8px; border-radius:10px; }
+    pre { background:#0f172a; border:1px solid var(--line); border-radius:8px; padding:12px;
+          min-height:80px; max-height:240px; overflow:auto; font-size:12px; color:var(--dim);
+          white-space:pre-wrap; word-break:break-all; margin:0; }
+    .warn { background:#7c2d12; color:#fdba74; border:1px solid #9a3412; border-radius:8px;
+            padding:10px 14px; margin-bottom:14px; font-size:14px; }
+  </style>
+</head>
+<body>
+  <h1>抢答器测试台（BLE + 串口）</h1>
+
+  <!-- 浏览器不支持 / 非 secure context 时显示 -->
+  <div class="warn" id="browser-warn" hidden>
+    ⚠️ 当前环境不支持 Web Bluetooth，或不是安全上下文（secure context）。<br>
+    Web Bluetooth 必须在 <b>https://</b> 或 <b>http://localhost</b> 下运行，
+    <b>不能直接双击打开 index.html 文件</b>。<br>
+    请在 web 目录下起个本地服务器再访问，例如：<br>
+    <code>python -m http.server 8000</code> 然后浏览器打开 <code>http://localhost:8000</code>
+  </div>
+
+  <!-- 连接 -->
+  <div class="card">
+    <h2>连接</h2>
+    <p style="margin:4px 0 12px;"><span class="status-dot" id="dot"></span><span id="status">未连接</span></p>
+    <button id="btn-connect">连接设备</button>
+    <button id="btn-disconnect" class="ghost" disabled>断开</button>
+    <p class="hint">每次点「连接设备」都会弹窗列出设备，选对应名字的 <b>Quizzer-XXXX</b>（XXXX 是板子 MAC 后两位，多台靠这个区分）。</p>
+  </div>
+
+  <!-- 测试 -->
+  <div class="card">
+    <h2>测试操作</h2>
+    <button id="btn-start" disabled>发「开始」（写 FFE1=01）</button>
+    <p class="hint">收到「已按下」通知（FFE2）会显示在下面：</p>
+    <div id="answer-box" class="hint" style="min-height:20px;"></div>
+  </div>
+
+  <!-- 绑定管理 -->
+  <div class="card">
+    <h2>绑定管理（FFE3）</h2>
+    <button id="btn-refresh" disabled>刷新绑定列表</button>
+    <button id="btn-delete-oldest" class="ghost" disabled>删最旧</button>
+    <button id="btn-delete-all" class="danger" disabled>清空全部</button>
+    <ul id="bond-list"></ul>
+    <p class="hint">列表里每台设备旁的「删除」= 指定删除那一台的绑定，腾出槽位给新主机。</p>
+  </div>
+
+  <!-- 串口控制 -->
+  <div class="card">
+    <h2>串口控制</h2>
+    <p style="margin:4px 0 12px;"><span class="status-dot" id="sdot"></span><span id="sstatus">未连接串口</span></p>
+    <button id="btn-serial-connect">选择串口</button>
+    <button id="btn-serial-disconnect" class="ghost" disabled>断开串口</button>
+    <button id="btn-serial-start" disabled>发「开始」（串口 0x01）</button>
+    <p class="hint">串口收发区（板子的打印日志 + 0x01 会混在一起，0x01 会被标成「已按下」）：</p>
+    <pre id="serial-log"></pre>
+  </div>
+
+  <!-- 日志 -->
+  <div class="card">
+    <h2>日志</h2>
+    <pre id="log"></pre>
+  </div>
+
+  <script>
+  // ===================== 常量 =====================
+  // 16-bit 自定义 UUID 的完整 128-bit 形式。
+  // Web Bluetooth 的 requestDevice/getPrimaryService 要求 0x 前缀或完整 128 位，
+  // 裸写 'ffe0' 会被当成标准服务名从而报错，所以这里直接用完整形式。
+  const SVC_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';   // 主服务 FFE0
+  const CMD_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';   // 命令 FFE1：写 0x01 = 开始
+  const ANS_UUID = '0000ffe2-0000-1000-8000-00805f9b34fb';   // 通知 FFE2：收到 0x01 = 已按下
+  const CLR_UUID = '0000ffe3-0000-1000-8000-00805f9b34fb';   // 绑定管理 FFE3：读=列表，写=删除
+
+  // ===================== 状态 =====================
+  let device = null;      // BluetoothDevice
+  let gatt = null;        // 连接后的 GATT server
+  let cmdChar = null;     // FFE1
+  let ansChar = null;     // FFE2
+  let clrChar = null;     // FFE3
+
+  // ===================== 工具 =====================
+  const $ = (id) => document.getElementById(id);
+
+  function log(msg) {
+    const pre = $('log');
+    const t = new Date().toLocaleTimeString();
+    pre.textContent += `[${t}] ${msg}\n`;
+    pre.scrollTop = pre.scrollHeight;
+  }
+
+  // 把 NimBLE 读出来的 6 字节 MAC 转成人类可读的 AA:BB:CC:DD:EE:FF（大端显示）
+  function formatMac(bytes) {
+    return bytes.slice().reverse()
+      .map(b => b.toString(16).padStart(2, '0')).join(':');
+  }
+  // 地址类型：0 = 公共地址，1 = 随机地址
+  function typeName(t) { return t === 0 ? 'public' : 'random'; }
+
+  function setConnected(on) {
+    $('dot').className = 'status-dot' + (on ? ' on' : '');
+    $('status').textContent = on ? '已连接 ' + (device.name || '') : '未连接';
+    $('btn-start').disabled = !on;
+    $('btn-refresh').disabled = !on;
+    $('btn-delete-oldest').disabled = !on;
+    $('btn-delete-all').disabled = !on;
+    $('btn-disconnect').disabled = !on;
+  }
+
+  // ===================== 连接 =====================
+  // 连接一个已授权的设备（自动重连走这里）
+  async function connect(d) {
+    device = d;
+    log('正在连接 ' + (d.name || d.id) + ' ...');
+    gatt = await device.gatt.connect();
+
+    const service = await gatt.getPrimaryService(SVC_UUID);
+    cmdChar = await service.getCharacteristic(CMD_UUID);
+    ansChar = await service.getCharacteristic(ANS_UUID);
+    clrChar = await service.getCharacteristic(CLR_UUID);
+
+    // 订阅 FFE2 通知：板子抢答后主动推「已按下」
+    await ansChar.startNotifications();
+    ansChar.addEventListener('characteristicvaluechanged', onAnswer);
+
+    // 监听断开
+    device.addEventListener('gattserverdisconnected', onDisconnect);
+
+    setConnected(true);
+    log('连接成功，已订阅 FFE2 通知');
+    refreshBondList();   // 顺手把绑定列表读出来
+  }
+
+  // 收到 FFE2 通知
+  function onAnswer(event) {
+    const val = event.target.value.getUint8(0);
+    if (val === 0x01) {
+      $('answer-box').textContent = '✅ 收到「已按下」通知！';
+      log('通知：已按下');
+    } else {
+      log('通知：收到未知值 ' + val);
+    }
+  }
+
+  function onDisconnect() {
+    setConnected(false);
+    gatt = null; cmdChar = null; ansChar = null; clrChar = null;
+    $('answer-box').textContent = '';
+    log('已断开');
+  }
+
+  // 「连接设备」按钮：先试自动重连（getDevices），找不到再弹窗手动选
+  async function smartConnect() {
+    try {
+      // 每次都弹框手动选设备。多台板子靠名字区分（Quizzer-XXXX，XXXX 是 MAC 后两位）。
+      device = await navigator.bluetooth.requestDevice({
+        filters: [{ namePrefix: 'Quizzer' }],
+        optionalServices: [SVC_UUID],   // 用 namePrefix 过滤时，必须显式声明要访问的服务
+      });
+      await connect(device);
+    } catch (e) {
+      log('连接失败：' + e.message);
+    }
+  }
+
+  // ===================== 测试操作 =====================
+  async function sendStart() {
+    try {
+      await cmdChar.writeValue(Uint8Array.of(0x01));   // FFE1 = 01，发「开始」
+      $('answer-box').textContent = '已发「开始」，等抢答…';
+      log('已写 FFE1 = 01（开始）');
+    } catch (e) {
+      log('发送开始失败：' + e.message);
+    }
+  }
+
+  // ===================== 绑定管理 =====================
+  // 读 FFE3：返回 7 字节一块 [type, MAC0..MAC5]，可能多块
+  async function refreshBondList() {
+    if (!clrChar) return;
+    try {
+      const val = await clrChar.readValue();
+      const bonded = [];
+      for (let i = 0; i + 7 <= val.byteLength; i += 7) {
+        const type = val.getUint8(i);
+        const mac = [];
+        for (let j = 0; j < 6; j++) mac.push(val.getUint8(i + 1 + j));
+        bonded.push({ type, mac });
+      }
+      renderBondList(bonded);
+      log('读取绑定列表：共 ' + bonded.length + ' 台');
+    } catch (e) {
+      log('读取绑定列表失败：' + e.message);
+    }
+  }
+
+  function renderBondList(list) {
+    const ul = $('bond-list');
+    ul.innerHTML = '';
+    if (list.length === 0) {
+      ul.innerHTML = '<li style="color:var(--dim)">（当前无绑定）</li>';
+      return;
+    }
+    for (const b of list) {
+      const li = document.createElement('li');
+      const mac = document.createElement('span');
+      mac.className = 'mac';
+      mac.textContent = formatMac(b.mac);
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = typeName(b.type);
+      const del = document.createElement('button');
+      del.className = 'danger';
+      del.textContent = '删除';
+      del.onclick = () => deletePeer(b);   // 指定删除这一台
+      li.append(mac, tag, del);
+      ul.appendChild(li);
+    }
+  }
+
+  // 指定删除：写 [0x03][type][MAC0..5]（共 8 字节），把读出来的原始字节原样写回
+  async function deletePeer(b) {
+    const data = new Uint8Array(8);
+    data[0] = 0x03;
+    data[1] = b.type;
+    for (let j = 0; j < 6; j++) data[2 + j] = b.mac[j];
+    try {
+      await clrChar.writeValue(data);
+      log('已删除绑定 ' + formatMac(b.mac));
+      await refreshBondList();
+    } catch (e) {
+      log('删除失败：' + e.message);
+    }
+  }
+
+  // 删最旧：写 [0x01]
+  async function deleteOldest() {
+    try {
+      await clrChar.writeValue(Uint8Array.of(0x01));
+      log('已删除最旧绑定');
+      refreshBondList();
+    } catch (e) {
+      log('删最旧失败：' + e.message);
+    }
+  }
+
+  // 清空全部：写 [0x02]
+  async function deleteAll() {
+    if (!confirm('确定清空所有绑定吗？')) return;
+    try {
+      await clrChar.writeValue(Uint8Array.of(0x02));
+      log('已清空全部绑定');
+      refreshBondList();
+    } catch (e) {
+      log('清空失败：' + e.message);
+    }
+  }
+
+  // ===================== 串口（Web Serial） =====================
+  let serialPort = null;   // 打开后的 SerialPort
+
+  function setSerialConnected(on) {
+    $('sdot').className = 'status-dot' + (on ? ' on' : '');
+    $('sstatus').textContent = on ? '串口已连接' : '未连接串口';
+    $('btn-serial-start').disabled = !on;
+    $('btn-serial-disconnect').disabled = !on;
+    $('btn-serial-connect').disabled = on;
+  }
+
+  // 选串口并打开（115200；USB-Serial-JTAG 的波特率其实被 CDC 忽略，随便填一个）
+  async function serialConnect() {
+    try {
+      serialPort = await navigator.serial.requestPort();
+      await serialPort.open({ baudRate: 115200 });
+      setSerialConnected(true);
+      log('串口已打开');
+      readSerial();   // 启动后台读循环
+    } catch (e) {
+      log('打开串口失败：' + e.message);
+    }
+  }
+
+  // 读循环：把板子发来的字节拆成「0x01=已按下」和「其它=文本」
+  async function readSerial() {
+    const dec = new TextDecoder();
+    const pre = $('serial-log');
+    while (serialPort && serialPort.readable) {
+      const reader = serialPort.readable.getReader();
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          for (let i = 0; i < value.length; i++) {
+            if (value[i] === 0x01) {
+              pre.textContent += '【已按下 0x01】\n';
+            } else {
+              pre.textContent += dec.decode(value.subarray(i, i + 1), { stream: true });
+            }
+          }
+          pre.scrollTop = pre.scrollHeight;
+        }
+      } catch (e) {
+        // 断开串口时 read() 会抛错，正常退出
+      } finally {
+        reader.releaseLock();
+      }
+    }
+    // 走到这里 = 串口已断开
+    if (serialPort) {
+      serialPort = null;
+      setSerialConnected(false);
+      log('串口已断开');
+    }
+  }
+
+  // 发「开始」：写一个 0x01 字节（跟 BLE 命令一致）
+  async function serialSendStart() {
+    if (!serialPort || !serialPort.writable) return;
+    try {
+      const writer = serialPort.writable.getWriter();
+      await writer.write(Uint8Array.of(0x01));
+      writer.releaseLock();
+      log('已通过串口发 0x01（开始）');
+    } catch (e) {
+      log('串口发送失败：' + e.message);
+    }
+  }
+
+  // 手动断开串口
+  async function serialDisconnect() {
+    if (!serialPort) return;
+    try { await serialPort.close(); } catch (e) {}
+    serialPort = null;
+    setSerialConnected(false);
+    log('串口已手动断开');
+  }
+
+  // ===================== 初始化 =====================
+  function init() {
+    // 串口（Web Serial）—— 独立于 BLE，各自判断支持情况
+    if (navigator.serial) {
+      $('btn-serial-connect').onclick = serialConnect;
+      $('btn-serial-disconnect').onclick = serialDisconnect;
+      $('btn-serial-start').onclick = serialSendStart;
+    } else {
+      $('btn-serial-connect').disabled = true;
+      log('当前环境不支持 Web Serial（要 Chrome/Edge + localhost/https）');
+    }
+
+    // 检测 Web Bluetooth 是否可用
+    if (!navigator.bluetooth) {
+      $('browser-warn').hidden = false;
+      $('btn-connect').disabled = true;
+      log('当前环境不支持 Web Bluetooth');
+      return;
+    }
+
+    $('btn-connect').onclick = smartConnect;
+    $('btn-disconnect').onclick = () => { if (gatt) gatt.disconnect(); };
+    $('btn-start').onclick = sendStart;
+    $('btn-refresh').onclick = refreshBondList;
+    $('btn-delete-oldest').onclick = deleteOldest;
+    $('btn-delete-all').onclick = deleteAll;
+
+    log('页面已就绪。点「连接设备」或「选择串口」开始。');
+  }
+
+  init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<Window x:Class="FitnessTimer.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:FitnessTimer" Title="体能计时 · 四赛道测试系统 v1.1.2" Width="1320" Height="900" MinWidth="1120" MinHeight="650" WindowStartupLocation="CenterScreen" Background="#F2F5F9" FontFamily="Microsoft YaHei UI" Closing="Window_Closing" PreviewKeyDown="Window_KeyDown">
+ <Grid Margin="28">
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <Grid Margin="0,0,0,16"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+   <StackPanel Margin="0,0,24,0"><TextBlock x:Name="ActivityTitleText" Text="{Binding Preparation.ActivityName}" FontSize="30" FontWeight="Bold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Preparation.ActivityName}"/><TextBlock x:Name="OrganizerTitleText" Text="{Binding Preparation.Organizer}" Foreground="#718096" Margin="2,8,0,0" FontSize="20" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Preparation.Organizer}"/></StackPanel>
+   <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+    <Button Content="外屏投屏" Background="#203852" Foreground="White" Padding="20,11" Margin="0,0,16,0" Click="Projection_Click"/>
+    <Border Background="#DDEFE9" CornerRadius="16" Padding="15,7" VerticalAlignment="Center"><TextBlock Text="●  本地离线运行" Foreground="#18765F"/></Border>
+   </StackPanel>
+   <WrapPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,12,0,0" VerticalAlignment="Center">
+    <ItemsControl x:Name="BluetoothIndicators"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate>
+     <Border Background="White" CornerRadius="6" Padding="8,4" Margin="0,0,6,0" ToolTip="{Binding BatteryHint}"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="{Binding CompactLabel}" FontSize="12" Margin="0,0,6,0"/><Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="0,0,4,0"><Ellipse.Style><Style TargetType="Ellipse"><Setter Property="Fill" Value="#9AA5B3"/><Style.Triggers><DataTrigger Binding="{Binding IsConnected}" Value="True"><Setter Property="Fill" Value="#087F72"/></DataTrigger></Style.Triggers></Style></Ellipse.Style></Ellipse><TextBlock Text="{Binding BatteryDisplay}" FontSize="12"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="#9AA5B3"/><Style.Triggers><DataTrigger Binding="{Binding IsConnected}" Value="True"><Setter Property="Foreground" Value="#087F72"/></DataTrigger><DataTrigger Binding="{Binding BatteryLow}" Value="True"><Setter Property="Foreground" Value="#DC2626"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel></Border>
+    </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+    <Button x:Name="TabletServiceButton" Click="TabletService_Click" Padding="12,6" Margin="8,0,0,0"><StackPanel Orientation="Horizontal"><TextBlock Text="▣" FontSize="17" Margin="0,0,6,0"/><TextBlock x:Name="TabletServiceText" Text="平板服务 · 已停止" FontSize="12"/></StackPanel></Button>
+   </WrapPanel>
+  </Grid>
+  <TabControl x:Name="MainTabs" Grid.Row="1" Background="White" BorderBrush="#E1E7EF">
+   <TabItem Header="赛前准备"><local:PreparationPanel x:Name="PrepPanel"/></TabItem>
+   <TabItem x:Name="TimingTab" Header="现场计时"><Grid Margin="18">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <WrapPanel VerticalAlignment="Center" Margin="0,0,0,16"><TextBlock Text="批次名称" Margin="0,0,12,0"/><TextBlock x:Name="BatchNameText" MinWidth="120" MaxWidth="350" TextTrimming="CharacterEllipsis" ToolTip="批次名称来自赛前准备，请在批次卡片中修改。"/><TextBlock Text="声音在赛前准备中配置" Foreground="#718096" Margin="24,0,0,0"/><TextBlock x:Name="BluetoothStatusText" Text="蓝牙按钮 0/4 已连接" Margin="20,0,0,0" Foreground="#718096"/></WrapPanel>
+    <WrapPanel Grid.Row="1" Margin="0,0,0,18">
+     <Button x:Name="StartButton" Content="▶  统一开始" Background="#087F72" Foreground="White" Padding="24,12" Click="Start_Click"/>
+     <Button x:Name="PauseAllButton" Content="暂停全部" Click="PauseAll_Click"/>
+     <Button x:Name="FinishAllButton" Content="完成全部" Click="FinishAll_Click"/>
+     <Button x:Name="ResetButton" Content="重置本组" Click="Reset_Click"/>
+     <Button x:Name="NextBatchButton" Content="下一组" Click="NextBatch_Click" Background="#203852" Foreground="White"/>
+     <TextBlock x:Name="QueueStatusText" Text="未配置批次卡片" Foreground="#718096" Margin="14,0,0,0"/>
+    </WrapPanel>
+    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+     <StackPanel>
+      <Grid Margin="12,0,12,8"><Grid.ColumnDefinitions><ColumnDefinition Width="80"/><ColumnDefinition Width="145"/><ColumnDefinition Width="*"/><ColumnDefinition Width="140"/><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/><ColumnDefinition Width="155"/></Grid.ColumnDefinitions><TextBlock Text="赛道 / 状态"/><TextBlock Grid.Column="1" Text="选手姓名"/><TextBlock Grid.Column="2" Text="基础用时"/><TextBlock Grid.Column="3" Text="5 秒罚时"/><TextBlock Grid.Column="4" Text="15 秒罚时"/><TextBlock Grid.Column="5" Text="总用时"/><TextBlock Grid.Column="6" Text="赛道操作"/></Grid>
+      <ItemsControl x:Name="LaneList" ItemsSource="{Binding Lanes}"><ItemsControl.ItemTemplate><DataTemplate>
+       <Border Background="#F6F8FB" CornerRadius="10" Padding="12,14" Margin="0,0,0,12">
+        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="80"/><ColumnDefinition Width="145"/><ColumnDefinition Width="*"/><ColumnDefinition Width="140"/><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/><ColumnDefinition Width="155"/></Grid.ColumnDefinitions>
+         <StackPanel VerticalAlignment="Center"><TextBlock Text="{Binding Number, StringFormat={}{0} 道}" FontSize="21" FontWeight="Bold"/><TextBlock Text="{Binding Status}" Foreground="#087F72" FontSize="12" Margin="0,4,0,0"/></StackPanel>
+         <TextBlock Grid.Column="1" Text="{Binding Participant, Mode=OneWay}" Margin="0,0,18,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding Participant}"/>
+         <TextBlock Grid.Column="2" Text="{Binding BaseDisplay}" FontFamily="Consolas" FontSize="25" FontWeight="Bold"/>
+         <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center"><Button Content="−" Tag="5,-1" Click="Penalty_Click" Padding="9,6"/><TextBlock Text="{Binding FiveCount}" MinWidth="22" TextAlignment="Center" FontSize="18"/><Button Content="+" Tag="5,1" Click="Penalty_Click" Padding="9,6"/></StackPanel>
+         <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center"><Button Content="−" Tag="15,-1" Click="Penalty_Click" Padding="9,6"/><TextBlock Text="{Binding FifteenCount}" MinWidth="22" TextAlignment="Center" FontSize="18"/><Button Content="+" Tag="15,1" Click="Penalty_Click" Padding="9,6"/></StackPanel>
+         <TextBlock Grid.Column="5" Text="{Binding TotalDisplay}" FontFamily="Consolas" FontSize="25" FontWeight="Bold" Foreground="#087F72"/>
+         <StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center"><Button Content="{Binding PauseLabel}" IsEnabled="{Binding CanPause}" Click="Pause_Click" Padding="12,8"/><Button Content="完成" IsEnabled="{Binding CanFinish}" Click="Finish_Click" Padding="12,8"/></StackPanel>
+        </Grid>
+       </Border>
+      </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+     </StackPanel>
+    </ScrollViewer>
+    <Border Grid.Row="3" Background="#EFF6FA" CornerRadius="8" Padding="14" Margin="0,12,0,0"><TextBlock Text="总用时 = 基础用时 + 5 秒 × 次数 + 15 秒 × 次数。暂停期间不计时；完成后可修正罚时，点击“下一组”自动保存成绩。" TextWrapping="Wrap" Foreground="#52677C"/></Border>
+   </Grid></TabItem>
+   <TabItem Header="历史成绩"><Grid Margin="18"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+    <DockPanel Margin="0,0,0,16"><Button DockPanel.Dock="Right" Content="导出全部成绩 CSV" Click="Export_Click"/><Button x:Name="DeleteHistoryButton" DockPanel.Dock="Right" Content="删除选中成绩" Click="DeleteHistory_Click" IsEnabled="False"/><CheckBox x:Name="SelectAllHistory" DockPanel.Dock="Right" Content="全选" IsThreeState="True" VerticalAlignment="Center" Margin="16,0" Checked="SelectAllHistory_Click" Unchecked="SelectAllHistory_Click"/><TextBlock Text="已保存的测试记录" FontSize="20" FontWeight="Bold"/></DockPanel>
+    <DataGrid x:Name="HistoryGrid" Grid.Row="1" ItemsSource="{Binding HistoryResults}" SelectionMode="Extended" SelectionUnit="FullRow" SelectionChanged="HistorySelectionChanged" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" RowHeight="38" HeadersVisibility="Column" GridLinesVisibility="Horizontal" BorderBrush="#E1E7EF" AlternatingRowBackground="#F4F7FA" HorizontalGridLinesBrush="#E1E7EF"><DataGrid.Columns>
+     <DataGridTemplateColumn Header="选择" Width="60"><DataGridTemplateColumn.CellTemplate><DataTemplate><CheckBox HorizontalAlignment="Center" VerticalAlignment="Center" PreviewMouseLeftButtonDown="HistoryCheck_MouseDown" IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+     <DataGridTextColumn Header="批次" Binding="{Binding Result.Batch}" Width="*"/><DataGridTextColumn Header="时间" Binding="{Binding Result.DateDisplay}" Width="170"/><DataGridTextColumn Header="赛道" Binding="{Binding Result.Lane}" Width="60"/><DataGridTextColumn Header="选手" Binding="{Binding Result.Participant}" Width="110"/><DataGridTextColumn Header="本批次名次" Binding="{Binding BatchRank}" Width="95"/><DataGridTextColumn Header="总排名" Binding="{Binding OverallRank}" Width="80"/><DataGridTextColumn Header="基础用时" Binding="{Binding Result.BaseDisplay}" Width="110"/><DataGridTextColumn Header="5秒次数" Binding="{Binding Result.FiveCount}" Width="80"/><DataGridTextColumn Header="15秒次数" Binding="{Binding Result.FifteenCount}" Width="80"/><DataGridTextColumn Header="罚时(秒)" Binding="{Binding Result.PenaltySeconds}" Width="80"/><DataGridTextColumn Header="总用时" Binding="{Binding Result.TotalDisplay}" Width="110"/>
+    </DataGrid.Columns></DataGrid>
+   </Grid></TabItem>
+  </TabControl>
+  <DockPanel Grid.Row="2" Margin="0,16,0,0"><TextBlock DockPanel.Dock="Right" Text="Ctrl + Enter 开始 / 继续  ·  Ctrl + P 暂停全部" Foreground="#718096"/><TextBlock x:Name="StatusText" Text="就绪，请填写选手姓名后开始。" Foreground="#52677C"/></DockPanel>
+ </Grid>
+</Window>
+
+
